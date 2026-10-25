@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dziennik planszówek</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column app, sticky tab bar, rows like a score sheet; felt green + wood amber */
+:root{
+  --bg:#f3f5f1; --surface:#ffffff; --line:#dde3dc; --fg:#18211c; --muted:#5d6b62;
+  --accent:#2c6a4c; --accent-fg:#ffffff; --wood:#a8681d; --wood-soft:#f6ead7; --danger:#b03a2e;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111713; --surface:#18201b; --line:#2a352e; --fg:#e4ebe6; --muted:#93a39a;
+  --accent:#5db58a; --accent-fg:#0d1a13; --wood:#e0a456; --wood-soft:#2e2416; --danger:#e57a6e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111713; --surface:#18201b; --line:#2a352e; --fg:#e4ebe6; --muted:#93a39a;
+  --accent:#5db58a; --accent-fg:#0d1a13; --wood:#e0a456; --wood-soft:#2e2416; --danger:#e57a6e; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:13px;line-height:1.4;font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 96px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:6px 8px;display:grid;gap:8px}
+h1{font-family:var(--display);font-weight:800;font-size:1.1rem;margin:0;line-height:1.2}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#tabSel{width:auto;min-width:9.5em;font-weight:600;padding:6px 8px}
+.stat{color:var(--muted);font-size:.78rem}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px}
+.tabs button{flex:1;border:0;background:none;color:var(--muted);font:600 .9rem var(--body);padding:8px 4px;border-radius:7px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
+input,textarea,select{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.filters{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:end}
+.tag{display:inline-block;font-size:.68em;font-weight:700;letter-spacing:.03em;border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:0 4px;margin-left:6px;vertical-align:middle}
+.filters label{display:grid;gap:3px;font-size:.75rem;color:var(--muted)}
+.filters select{padding:7px 8px}
+.shame-row{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.shame{display:flex;align-items:center;gap:8px;font-size:.9rem !important;color:var(--fg) !important}
+.shame input{width:20px;height:20px;accent-color:var(--wood)}
+.list{display:grid;margin-top:8px;border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:4px 2px;line-height:1.3;border-bottom:1px solid var(--line);background:none;border-left:0;border-right:0;border-top:0;text-align:left;color:inherit;font:inherit;cursor:pointer;width:100%}
+.row:hover{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.row.rk{grid-template-columns:3ch minmax(0,1fr) 7ch 6ch;row-gap:0;grid-template-areas:"rank name name name" ". last cnt score"}
+.row.rk .rank{grid-area:rank}.row.rk .name{grid-area:name}.row.rk .last{grid-area:last}.row.rk .cnt{grid-area:cnt;text-align:right}.row.rk .score{grid-area:score}
+.row.play .who{white-space:normal;overflow:visible}
+.row.play{grid-template-columns:11ch minmax(0,1fr) 7ch;row-gap:0;grid-template-areas:"name name cnt" "date who score"}
+.row.play .cnt{grid-area:cnt;text-align:right}
+.row.play .date{grid-area:date}.row.play .name{grid-area:name}.row.play .who{grid-area:who}.row.play .score{grid-area:score}
+.row.place{grid-template-columns:4ch minmax(0,1fr) 6ch}
+.row.game{grid-template-columns:minmax(0,1fr) 6ch 5ch}
+.filters label.shame{display:flex;align-items:center;gap:8px}
+.own-owned{color:var(--accent)}.own-wish{color:var(--wood)}.own-former{color:var(--muted);font-weight:500}
+.row.head{cursor:default;color:var(--muted);padding-block:3px}
+.row.head .score{color:var(--muted)}
+.row.head:hover{background:none}
+.row.head span{font-weight:500;white-space:nowrap;font-size:.8em}
+.r{text-align:right}
+.rank{font-weight:600;color:var(--muted);font-size:.85rem;text-align:right}
+.main{min-width:0}
+.name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sub{color:var(--muted);font-size:.85rem;overflow-wrap:anywhere}
+.meta{color:var(--muted);font-size:.85rem;white-space:nowrap;font-weight:400}
+.meta b{color:var(--wood);font-weight:600}
+.meta b.carried{color:var(--muted);font-weight:400;opacity:.75}
+.score.carried{color:var(--muted);font-weight:400}
+.who{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.score{font-weight:700;color:var(--accent);text-align:right}
+.score.none{color:var(--muted);font-weight:400}
+.date{font-size:.85rem;color:var(--muted)}
+.chips{display:flex;flex-wrap:nowrap;gap:3px}
+.chip{font-size:.78rem;border:1px solid var(--line);border-radius:999px;padding:0 6px;color:var(--muted);white-space:nowrap}
+.chip b{color:var(--wood);font-weight:600}
+.chip.own{border-color:var(--accent);color:var(--accent)}
+.chip.wish{border-color:var(--wood);color:var(--wood)}
+.chip.shame{background:var(--wood-soft);border-color:var(--wood);color:var(--wood)}
+.section-label{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:18px 0 0}
+.fab{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:6;border:0;background:var(--accent);color:var(--accent-fg);font:600 1rem var(--body);padding:13px 20px;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:pointer}
+.empty{padding:32px 4px;color:var(--muted);text-align:center}
+dialog{border:0;padding:0;background:var(--surface);color:var(--fg);border-radius:14px;width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 32px)}
+dialog::backdrop{background:rgba(10,16,12,.45)}
+.dlg{display:grid;gap:14px;padding:18px 16px 16px}
+.dlg h2{font-family:var(--display);font-weight:800;font-size:1.3rem;margin:0;text-wrap:balance;overflow-wrap:anywhere}
+.field{display:grid;gap:5px}
+.field>span{font-size:.8rem;color:var(--muted);font-weight:500}
+.with-btn{display:flex;gap:8px}
+.with-btn .btn{white-space:nowrap}
+.grid2{display:grid;grid-template-columns:1fr 6rem;gap:10px}
+.info{background:var(--wood-soft);color:var(--fg);border-radius:8px;padding:8px 10px;font-size:.88rem}
+.info b{color:var(--wood)}
+.players{display:grid;gap:6px}
+.prow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.prow label{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.step{display:flex;align-items:center;gap:4px}
+.step button{width:2.4em;height:2.2em;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);font:600 1.1em var(--body);cursor:pointer;padding:0}
+.step .sv{min-width:2.6em;width:auto;border:0;background:none;text-align:center;font-weight:600;color:var(--wood);font-size:1em}
+.prow input[type=checkbox],.check input{width:20px;height:20px;accent-color:var(--accent)}
+.prow select{padding:7px 8px;text-align:center}
+.sugg{display:grid;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.pbadge{display:inline-grid;place-items:center;width:1.5em;height:1.5em;border-radius:4px;background:var(--wood-soft);color:var(--wood);font-weight:700;font-size:.8em;vertical-align:middle;margin-left:4px}
+.qrow{display:flex;gap:8px}.qrow #q{flex:1;min-width:0}#fPlaceSel,#fPTypeSel{width:auto;max-width:30%;min-width:0;flex:0 1 auto}
+input,select,textarea{min-width:0}
+.dlg{grid-template-columns:minmax(0,1fr)}
+.grid2{grid-template-columns:minmax(0,1fr) 6rem !important}
+#tabSel{min-width:0 !important;flex:none}
+.top h1{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header{grid-template-columns:minmax(0,1fr)}
+.newplace{display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--muted)}.newplace input{width:3.2em;text-align:center;text-transform:uppercase;padding:6px}
+.sugg button{text-align:left;padding:9px 10px;border:0;border-bottom:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;cursor:pointer}
+.sugg button:last-child{border-bottom:0}
+#fNewGame{justify-self:start}
+.check{display:flex;align-items:center;gap:10px}
+.hint{font-size:.8rem;color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--fg);font:600 .92rem var(--body);padding:9px 16px;border-radius:8px;cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.danger{color:var(--danger);margin-right:auto}
+.btn.danger.armed{background:var(--danger);color:var(--surface);border-color:var(--danger)}
+.btn[disabled]{opacity:.5;cursor:default}
+.calc{font-size:.88rem;color:var(--muted)}
+.calc b{color:var(--accent);font-family:var(--display);font-size:1.1rem}
+.hist{display:grid;border-top:1px solid var(--line)}
+.hrow{display:grid;grid-template-columns:5.2rem 1fr auto;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.88rem;align-items:start}
+.hrow.unrated{color:var(--muted)}
+.hrow .avg{font-weight:600;color:var(--wood)}
+.hrow.latest .avg{color:var(--accent)}
+.addp{display:flex;gap:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:.9rem;z-index:20;max-width:calc(100vw - 32px)}
+[hidden]{display:none!important}
+body{margin:0}
+body:not(.p-ins) .need-ins,body:not(.p-upd) .need-upd,body:not(.p-del) .need-del,body:not(.p-man) .need-man{display:none!important}
+#authBtn{flex:none;padding:6px 10px;font-size:.85rem}
+.row.perm{grid-template-columns:minmax(0,1fr) auto auto;cursor:default}
+.row.perm select{width:auto;padding:5px 6px}
+.addperm{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;margin-top:14px}
+.addperm select{width:auto}
+.err{color:var(--danger)}
+@media (prefers-reduced-motion:no-preference){.row{transition:background .15s}}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app">
+  <header>
+    <div class="top"><h1>Dziennik planszówek</h1>
+      <select id="tabSel" aria-label="Widok">
+        <option value="ranking">Ranking</option>
+        <option value="plays">Rozgrywki</option>
+        <option value="games">Gry</option>
+        <option value="places">Miejsca</option>
+        <option value="players">Gracze</option>
+        <option value="info">Info</option>
+      </select>
+      <button type="button" class="btn" id="authBtn">Zaloguj</button>
+    </div>
+    <div class="qrow"><input id="q" type="search" placeholder="Szukaj" autocomplete="off"><select id="fPlaceSel" aria-label="Miejsce" hidden></select><select id="fPTypeSel" aria-label="Typ gry" hidden><option value="all">typ</option><option value="board">plansz./karc.</option><option value="rpg">RPG</option><option value="war">bitewniaki</option><option value="party">towarzyskie</option></select></div>
+    <div class="filters" id="gFilters" hidden>
+      <label>Grana<select id="fPlayedSel"><option value="all">wszystkie</option><option value="yes">grane</option><option value="no">niegrane</option></select></label>
+      <label>Posiadanie<select id="fOwnSel"><option value="all">wszystkie</option><option value="owned">w posiadaniu</option><option value="former">była w posiadaniu</option><option value="wish">lista życzeń</option><option value="none">brak</option></select></label>
+      <label>Typ<select id="fTypeSel"><option value="all">wszystkie</option><option value="board">plansz./karc.</option><option value="rpg">RPG</option><option value="war">bitewniaki</option><option value="party">towarzyskie</option></select></label>
+      <div class="shame-row"><label class="shame"><input type="checkbox" id="fShame"> Półka wstydu</label><span class="sub" id="gCount"></span></div>
+    </div>
+  </header>
+  <main id="view"><p class="empty">Wczytuję dziennik z bazy…</p></main>
+</div>
+<button class="fab need-ins" id="fab">+ Rozgrywka</button>
+
+<dialog id="playDlg"><form class="dlg" id="playForm" method="dialog">
+  <h2 id="playDlgTitle">Nowa rozgrywka</h2>
+  <div class="field"><span>Gra</span>
+    <input id="fGame" autocomplete="off" placeholder="Wpisz nazwę gry">
+    <div class="sugg" id="fSugg" hidden></div>
+    <div class="actions" style="justify-content:flex-start"><button type="button" class="btn need-ins" id="fNewGame">+ Dodaj grę</button><button type="button" class="btn" id="fEditGame" hidden>Edytuj grę</button></div>
+  </div>
+  <div class="info" id="fInfo" hidden></div>
+  <div class="grid2">
+    <label class="field"><span>Data</span><input id="fDate" type="date" required></label>
+    <label class="field"><span>Ile partii</span><input id="fCount" type="number" min="1" step="1" value="1" required></label>
+  </div>
+  <div class="field"><span>Gracze i oceny (1–10, opcjonalnie)</span><div class="players" id="fPlayers"></div></div>
+  <div class="field"><span>Miejsce (opcjonalnie)</span>
+    <input id="fPlace" autocomplete="off" placeholder="Wpisz miejsce">
+    <div class="sugg" id="fPlaceSugg" hidden></div>
+    <label class="newplace" id="fNewPlace" hidden>Nowe miejsce, litera: <input id="fPlaceLetter" maxlength="1" autocomplete="off"></label>
+  </div>
+  <label class="field"><span>Uwagi</span><textarea id="fNotes" rows="2"></textarea></label>
+  <div class="actions">
+    <button type="button" class="btn danger need-del" id="fDel" hidden>Usuń</button>
+    <button type="button" class="btn" id="fCancel">Anuluj</button>
+    <button type="submit" class="btn primary" id="fSave">Zapisz</button>
+  </div>
+</form></dialog>
+
+<dialog id="placeDlg"><form class="dlg" id="placeForm" method="dialog">
+  <h2 id="plDlgTitle">Nowe miejsce</h2>
+  <label class="field"><span>Nazwa</span><input id="plName" autocomplete="off" required></label>
+  <label class="field"><span>Litera</span><input id="plLetter" maxlength="1" autocomplete="off" required style="width:4em;text-align:center;text-transform:uppercase"></label>
+  <div class="actions">
+    <button type="button" class="btn danger need-del" id="plDel" hidden>Usuń</button>
+    <button type="button" class="btn" id="plCancel">Zamknij</button>
+    <button type="submit" class="btn primary" id="plSave">Zapisz</button>
+  </div>
+  <p class="hint" id="plCount"></p>
+</form></dialog>
+
+<dialog id="gameDlg"><form class="dlg" id="gameForm" method="dialog">
+  <h2 id="gDlgTitle">Nowa gra</h2>
+  <label class="field"><span>Nazwa</span><input id="gName" autocomplete="off" required></label>
+  <label class="check"><input type="checkbox" id="gPlayed"> <span>Grana</span></label>
+  <p class="hint" id="gPlayedHint" hidden>Ma zapisane rozgrywki, więc jest grana.</p>
+  <label class="field"><span>Posiadanie</span><select id="gOwn"><option value="none">brak</option><option value="owned">w posiadaniu</option><option value="former">była w posiadaniu</option><option value="wish">lista życzeń</option></select></label>
+  <label class="field"><span>Typ</span><select id="gType"><option value="board">planszowa / karciana</option><option value="rpg">RPG</option><option value="war">bitewniak</option><option value="party">towarzyska</option></select></label>
+  <div class="actions">
+    <button type="button" class="btn danger need-del" id="gDel" hidden>Usuń</button>
+    <button type="button" class="btn need-ins" id="gAddPlay" hidden>+ Rozgrywka</button>
+    <button type="button" class="btn" id="gCancel">Zamknij</button>
+    <button type="submit" class="btn primary" id="gSave">Zapisz</button>
+  </div>
+  <div id="gStats" hidden>
+    <div class="calc" id="gCalc"></div>
+    <div class="field" style="margin-top:12px"><span>Historia rozgrywek i ocen</span><div class="hist" id="gHist"></div></div>
+  </div>
+</form></dialog>
+
+<dialog id="loginDlg"><form class="dlg" id="loginForm" method="dialog">
+  <h2>Logowanie</h2>
+  <p class="hint">Logowanie jest potrzebne tylko do dodawania i edycji. Przeglądanie działa bez konta.</p>
+  <label class="field"><span>E-mail</span><input id="lgEmail" type="email" autocomplete="username" required></label>
+  <label class="field"><span>Hasło</span><input id="lgPass" type="password" autocomplete="current-password" required></label>
+  <p class="hint err" id="lgErr" hidden></p>
+  <div class="actions">
+    <button type="button" class="btn" id="lgCancel">Anuluj</button>
+    <button type="submit" class="btn primary" id="lgOk">Zaloguj</button>
+  </div>
+</form></dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = n => n == null ? "—" : n.toFixed(2).replace(".", ",");
+const fmtR = n => (Math.round(n * 100) / 100).toString().replace(".", ",");
+const key = t => (t || "").trim().toLowerCase().replace(/\s+/g, " ");
+const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+const OWN = { owned: "w posiadaniu", former: "była w posiadaniu", wish: "lista życzeń", none: "" };
+const plural = (n, a, b, c) => n === 1 ? a : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 > 20)) ? b : c;
+
+const S = { session: null, perm: {}, types: [], owns: [], levels: [], permRows: null, plays: [], players: [], games: [], tab: "ranking", q: "", fPlayed: "all", fOwn: "all", fType: "all", fPType: "all", fShame: false,
+  editPlay: null, editGame: null, gameFromPlay: false, loaded: { all: false }, loadErr: false, places: [], fPlace: "all" };
+const tabs = ["ranking", "plays", "games", "places", "players", "info", "perms"];
+
+function avg(p) {
+  const v = Object.values(p.ratings || {}).filter(x => typeof x === "number" && x > 0);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+}
+const newer = (a, b) => (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0) || (a.lp ?? 1e9) - (b.lp ?? 1e9);
+const playerName = id => (S.players.find(p => p.id === id) || {}).name || id;
+const sortedPlayers = () => [...S.players].sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || a.name.localeCompare(b.name, "pl"));
+const gameName = id => (S.games.find(g => g.id === id) || {}).name || "(gra usunięta)";
+const gameByName = n => S.games.find(g => key(g.name) === key(n));
+
+function gameStats() {
+  const m = new Map(S.games.map(g => [g.id, { ...g, plays: [] }]));
+  for (const p of S.plays) { const g = m.get(p.gameId); if (g) g.plays.push(p); }
+  for (const g of m.values()) {
+    g.plays.sort(newer);
+    g.total = g.plays.reduce((s, p) => s + (Number(p.count) || 1), 0);
+    g.last = g.plays.find(p => avg(p) != null) || null;
+    g.lastRating = g.last ? avg(g.last) : null;
+    g.bonus = Math.round(0.1 * Math.max(0, g.total - 1) * 100) / 100;
+    g.score = g.lastRating == null ? null : g.lastRating + g.bonus;
+    g.isPlayed = g.plays.length > 0 || !!g.played;
+    g.own = g.ownership || "none";
+    g.kind = g.type || "board";
+    g.shame = g.own === "owned" && !g.isPlayed;
+  }
+  return [...m.values()];
+}
+const typeTag = t => { const x = S.types.find(y => y.code === t); return x && x.tag ? `<span class="tag">${esc(x.tag)}</span>` : ""; };
+const gamesWord = n => `${n} ${plural(n, "partia", "partie", "partii")}`;
+function statusChips(g) {
+  let c = "";
+  if (g.own === "owned") c += '<span class="chip own">posiadana</span>';
+  if (g.own === "former") c += '<span class="chip">była</span>';
+  if (g.own === "wish") c += '<span class="chip wish">życzenia</span>';
+  if (g.shame) c += '<span class="chip shame">półka wstydu</span>';
+  else if (!g.isPlayed) c += '<span class="chip">niegrana</span>';
+  return `<span class="chips">${c}</span>`;
+}
+const sd = d => d ? `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(2, 4)}` : "";
+
+function render() {
+  $("#tabSel").value = S.tab;
+  $("#q").hidden = S.tab === "players" || S.tab === "info" || S.tab === "perms";
+  const ps = $("#fPlaceSel"); ps.hidden = $("#fPTypeSel").hidden = S.tab !== "plays";
+  ps.innerHTML = '<option value="all">miejsca</option>' + [...S.places].sort((a, b) => a.name.localeCompare(b.name, "pl")).map(x => `<option value="${esc(x.id)}">${esc(x.letter)} · ${esc(x.name)}</option>`).join("");
+  ps.value = S.places.some(x => x.id === S.fPlace) ? S.fPlace : "all";
+  $("#gFilters").hidden = S.tab !== "games";
+  $("#fPlayedSel").disabled = $("#fOwnSel").disabled = S.fShame;
+  $("#fab").textContent = S.tab === "games" ? "+ Gra" : S.tab === "places" ? "+ Miejsce" : "+ Rozgrywka";
+  const v = $("#view");
+  if (!S.loaded.all) { v.innerHTML = S.loadErr ? '<p class="empty">Nie udało się wczytać danych. Sprawdź połączenie i odśwież stronę.</p>' : '<p class="empty">Wczytuję dziennik z bazy…</p>'; return; }
+  const G = gameStats();
+  const q = key(S.q), match = g => !q || key(g.name).includes(q);
+  if (S.tab === "ranking") {
+    const list = G.filter(g => g.plays.length && match(g)).sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || a.name.localeCompare(b.name, "pl"));
+    const rated = list.filter(g => g.score != null), un = list.filter(g => g.score == null);
+    const row = (g, i) => `<div role="button" tabindex="0" class="row rk" data-game="${esc(g.id)}">
+      <span class="rank">${i == null ? "" : i + 1}</span>
+      <span class="name">${esc(g.name)}${typeTag(g.type)}</span>
+      <span class="meta last">${sd(g.plays[0].date)}</span>
+      <span class="meta cnt">${g.total}</span>
+      ${g.score == null ? '<span class="score none">—</span>' : `<span class="score">${fmt(g.score)}</span>`}</div>`;
+    const head = '<div class="row rk head"><span class="rank r">#</span><span class="name">Gra</span><span class="last">Ostatnia</span><span class="cnt">Partii</span><span class="score r">Pkt</span></div>';
+    v.innerHTML = (rated.length ? `<div class="list">${head}${rated.map((g, i) => row(g, i)).join("")}</div>` : "")
+      + (un.length ? `<p class="section-label">Grane, jeszcze bez oceny (${un.length})</p><div class="list">${head}${un.map(g => row(g, null)).join("")}</div>` : "")
+      || '<p class="empty">Brak rozgrywek. Dodaj pierwszą przyciskiem „+ Rozgrywka”.</p>';
+  } else if (S.tab === "plays") {
+    const list = S.plays.filter(p => (S.fPlace === "all" || p.placeId === S.fPlace) && (S.fPType === "all" || ((S.games.find(x => x.id === p.gameId) || {}).type || "board") === S.fPType) && (!q || key(gameName(p.gameId)).includes(q) || key(p.notes).includes(q) || key(placeOf(p.placeId).name).includes(q))).sort(newer);
+    const eff = new Map(), lastBy = {};
+    for (const x of [...S.plays].sort((a, b) => newer(b, a))) {
+      const lb = lastBy[x.gameId] || (lastBy[x.gameId] = {}), r = x.ratings || {}, e = {};
+      for (const id of new Set([...(x.players || []), ...Object.keys(r)])) {
+        if (r[id] > 0) e[id] = { v: r[id], own: true }; else if (lb[id]) e[id] = { v: lb[id], own: false };
+      }
+      for (const id in r) if (r[id] > 0) lb[id] = r[id];
+      eff.set(x.id, e);
+    }
+    v.innerHTML = list.length ? `<div class="list"><div class="row play head"><span class="date">Data</span><span class="name">Gra</span><span class="cnt">Partii</span><span class="who">Gracze</span><span class="score r">Śr. ocena</span></div>${list.map(p => {
+      const e = eff.get(p.id) || {}, ids = [...new Set([...(p.players || []), ...Object.keys(p.ratings || {})])];
+      const vals = Object.values(e), a = vals.length ? vals.reduce((s, x) => s + x.v, 0) / vals.length : null, ownAny = vals.some(x => x.own);
+      const who = ids.map(id => `${esc(playerName(id))}${e[id] ? ` <b class="${e[id].own ? "" : "carried"}">${fmtR(e[id].v)}</b>` : ""}`).join(", ");
+      return `<div role="button" tabindex="0" class="row play" data-play="${esc(p.id)}">
+        <span class="date">${sd(p.date)}${p.placeId && placeOf(p.placeId).letter ? `<span class="pbadge" title="${esc(placeOf(p.placeId).name)}">${esc(placeOf(p.placeId).letter)}</span>` : ""}</span>
+        <span class="name">${esc(gameName(p.gameId))}${typeTag((S.games.find(x => x.id === p.gameId) || {}).type)}</span><span class="meta cnt">${Number(p.count) || 1}</span>
+        <span class="meta who">${who}</span>
+        ${a == null ? '<span class="score none">—</span>' : `<span class="score ${ownAny ? "" : "carried"}">${fmt(a)}</span>`}</div>`;
+    }).join("")}</div>` : '<p class="empty">Nic nie pasuje do wyszukiwania.</p>';
+  } else if (S.tab === "games") {
+    const list = G.filter(g => match(g) && (S.fType === "all" || g.kind === S.fType) && (S.fShame ? g.shame :
+      (S.fPlayed === "all" || (S.fPlayed === "yes") === g.isPlayed) && (S.fOwn === "all" || g.own === S.fOwn)))
+      .sort((a, b) => a.name.localeCompare(b.name, "pl"));
+    $("#gCount").textContent = `${list.length} z ${G.length} gier`;
+    v.innerHTML = (list.length ? `<div class="list"><div class="row game head"><span>Gra</span><span class="r">Partii</span><span class="r">Pkt</span></div>${list.map(g => `<div role="button" tabindex="0" class="row game" data-game="${esc(g.id)}">
+      <span class="name own-${esc(g.own)}">${esc(g.name)}${typeTag(g.type)}</span><span class="meta r">${g.total}</span>
+      ${g.score == null ? '<span class="score none"></span>' : `<span class="score">${fmt(g.score)}</span>`}</div>`).join("")}</div>`
+      : '<p class="empty">Żadna gra nie pasuje do filtrów.</p>');
+  } else if (S.tab === "places") {
+    const list = S.places.filter(x => !q || key(x.name).includes(q)).sort((a, b) => a.name.localeCompare(b.name, "pl"));
+    v.innerHTML = list.length ? `<div class="list"><div class="row place head"><span>Lit.</span><span>Miejsce</span><span class="r">Partii</span></div>${list.map(x => {
+      const n = S.plays.filter(p => p.placeId === x.id).reduce((s, p) => s + (Number(p.count) || 1), 0);
+      return `<div role="button" tabindex="0" class="row place" data-place="${esc(x.id)}"><span><span class="pbadge" style="margin:0">${esc(x.letter)}</span></span><span class="name">${esc(x.name)}</span><span class="meta r">${n}</span></div>`;
+    }).join("")}</div>` : '<p class="empty">Brak miejsc. Dodaj pierwsze przyciskiem „+ Miejsce”.</p>';
+  } else if (S.tab === "info") {
+    const stats = [
+      ["Partie", S.plays.reduce((s, p) => s + (Number(p.count) || 1), 0)],
+      ["Gry w bazie", G.length],
+      ["Gry zagrane", G.filter(g => g.isPlayed).length],
+      ["Gry posiadane", G.filter(g => g.own === "owned").length],
+      ["Lista życzeń", G.filter(g => g.own === "wish").length],
+      ["Półka wstydu", G.filter(g => g.shame).length]];
+    v.innerHTML = `<div class="list">${stats.map(([k, n]) => `<div class="row" style="cursor:default"><span>${k}</span><span class="score">${n}</span></div>`).join("")}</div>`
+      + `<p class="sub" style="margin-top:14px">${S.session ? `Zalogowano: ${esc(S.session.email)}${S.perm.level ? ` (${esc(S.perm.level)})` : " (brak uprawnień)"}` : "Nie zalogowano. Przeglądanie bez konta."}</p>`;
+  } else if (S.tab === "perms") {
+    if (!S.perm.manage) { v.innerHTML = '<p class="empty">Brak dostępu.</p>'; return; }
+    if (!S.permRows) { v.innerHTML = '<p class="empty">Wczytuję uprawnienia…</p>'; loadPermRows(); return; }
+    const lv = (sel, dis) => `<select ${dis}>${S.levels.map(l => `<option value="${esc(l.code)}" ${l.code === sel ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select>`;
+    const me = S.session ? S.session.email : "";
+    v.innerHTML = `<div class="list"><div class="row perm head"><span>E-mail</span><span>Poziom</span><span></span></div>${S.permRows.map(r => `<div class="row perm" data-email="${esc(r.email)}">
+      <span class="name">${esc(r.email)}</span>${lv(r.level_code, r.email === me ? 'disabled title="Nie możesz zmienić własnego poziomu"' : 'data-perm-level')}
+      ${r.email === me ? "<span></span>" : '<button type="button" class="btn danger" data-perm-del style="margin:0;padding:5px 10px">Usuń</button>'}</div>`).join("")}</div>
+      <form class="addperm" id="addPerm"><input id="newPermEmail" type="email" placeholder="e-mail konta" required>${lv("editor", 'id="newPermLevel"')}<button class="btn primary" type="submit">Dodaj</button></form>
+      <p class="hint" style="margin-top:10px">Konto do logowania zakładasz w panelu Supabase (Authentication → Users). Tutaj przypisujesz mu poziom po tym samym adresie e-mail.</p>`;
+  } else {
+    const ps = sortedPlayers();
+    v.innerHTML = `<div class="list">${ps.map(p => {
+      const mine = S.plays.filter(x => (x.players || []).includes(p.id) || (x.ratings || {})[p.id]);
+      const games = mine.reduce((s, x) => s + (Number(x.count) || 1), 0);
+      let rc = 0; const lastBy = {};
+      for (const x of [...S.plays].sort((a, b) => newer(b, a))) {
+        const r = (x.ratings || {})[p.id];
+        if (r > 0) { if (lastBy[x.gameId] !== r) rc++; lastBy[x.gameId] = r; }
+      }
+      return `<div class="row" style="cursor:default;grid-template-columns:1fr auto"><span class="main"><span class="name">${esc(p.name)}</span><br><span class="sub">${games} partii · ${rc} ocen</span></span><span></span></div>`;
+    }).join("")}</div>
+    <form class="addp need-ins" id="addPlayer" style="margin-top:14px"><input id="newPlayer" placeholder="Imię nowego gracza" autocomplete="off" required><button class="btn primary" type="submit">Dodaj</button></form>`;
+  }
+}
+
+const placeOf = id => S.places.find(x => x.id === id) || {};
+function freeLetter(name) {
+  const used = new Set(S.places.map(x => x.letter));
+  for (const ch of name.toUpperCase()) if (/[A-ZĄĆĘŁŃÓŚŹŻ]/.test(ch) && !used.has(ch)) return ch;
+  for (const ch of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") if (!used.has(ch)) return ch;
+  return "";
+}
+function placeSuggest(closeOnly) {
+  const q = key($("#fPlace").value), box = $("#fPlaceSugg"), np = $("#fNewPlace");
+  const exact = q && S.places.find(x => key(x.name) === q);
+  np.hidden = !q || !!exact;
+  if (!np.hidden && !$("#fPlaceLetter").dataset.touched) $("#fPlaceLetter").value = freeLetter($("#fPlace").value);
+  if (closeOnly || !q || exact) { box.hidden = true; return; }
+  const hits = S.places.filter(x => key(x.name).includes(q)).slice(0, 6);
+  box.innerHTML = hits.map(x => `<button type="button" data-plid="${esc(x.id)}"><span class="pbadge" style="margin:0 6px 0 0">${esc(x.letter)}</span>${esc(x.name)}</button>`).join("");
+  box.hidden = !hits.length;
+}
+/* --- play card --- */
+const RATINGS = Array.from({ length: 19 }, (_, i) => 1 + i * 0.5);
+function setGame(g) {
+  S.pickGame = g ? g.id : null;
+  $("#fGame").value = g ? g.name : "";
+  $("#fSugg").hidden = true;
+  fillInfo();
+}
+function suggest() {
+  const q = key($("#fGame").value), box = $("#fSugg");
+  const exact = q && S.games.find(g => key(g.name) === q);
+  S.pickGame = exact ? exact.id : null;
+  fillInfo();
+  if (!q || exact) { box.hidden = true; return; }
+  const hits = S.games.filter(g => key(g.name).includes(q))
+    .sort((a, b) => (key(b.name).startsWith(q) - key(a.name).startsWith(q)) || a.name.localeCompare(b.name, "pl")).slice(0, 6);
+  box.innerHTML = hits.length ? hits.map(g => `<button type="button" data-gid="${esc(g.id)}">${esc(g.name)}</button>`).join("")
+    : '<span class="sub" style="padding:8px 10px">Brak takiej gry. Użyj „+ Dodaj grę”.</span>';
+  box.hidden = false;
+}
+function fillInfo() {
+  $("#fEditGame").hidden = !S.pickGame || !S.perm.update;
+  const id = S.pickGame, info = $("#fInfo");
+  const g = id && gameStats().find(x => x.id === id);
+  if (!g) { info.hidden = true; return; }
+  info.hidden = false;
+  info.innerHTML = g.score == null
+    ? `${g.plays.length ? `Rozegrana ${g.total}×, jeszcze <b>bez oceny</b>.` : "Jeszcze bez rozgrywek i bez oceny."}`
+    : `Aktualna ocena <b>${fmt(g.lastRating)}</b> (z ${esc(g.last.date)}), rozegrana ${g.total}×, w rankingu <b>${fmt(g.score)}</b>.`;
+}
+function openPlay(id, presetGameId) {
+  const p = id ? S.plays.find(x => x.id === id) : null;
+  S.editPlay = p ? p.id : null;
+  $("#playDlgTitle").textContent = p ? "Edytuj rozgrywkę" : "Nowa rozgrywka";
+  setGame(S.games.find(g => g.id === (p ? p.gameId : presetGameId)) || null);
+  $("#fPlace").value = p && p.placeId ? placeOf(p.placeId).name || "" : "";
+  delete $("#fPlaceLetter").dataset.touched;
+  placeSuggest(true);
+  $("#fDate").value = p ? p.date : today();
+  $("#fCount").value = p ? p.count || 1 : 1;
+  $("#fNotes").value = p ? p.notes || "" : "";
+  const del = $("#fDel"); del.hidden = !p || !S.perm.delete; del.classList.remove("armed"); del.textContent = "Usuń";
+  const r = (p && p.ratings) || {}, pl = (p && p.players) || [];
+  $("#fPlayers").innerHTML = sortedPlayers().map(x => `<div class="prow">
+    <label><input type="checkbox" id="pc-${esc(x.id)}" data-pid="${esc(x.id)}" ${pl.includes(x.id) || r[x.id] ? "checked" : ""}> <span>${esc(x.name)}</span></label>
+    <div class="step" data-rid="${esc(x.id)}" data-val="${r[x.id] || ""}"><button type="button" data-d="-1" aria-label="Obniż ocenę ${esc(x.name)}">−</button><button type="button" class="sv" data-clear="1" aria-label="Usuń ocenę ${esc(x.name)}">${r[x.id] ? fmtR(r[x.id]) : "—"}</button><button type="button" data-d="1" aria-label="Podnieś ocenę ${esc(x.name)}">+</button></div></div>`).join("");
+  $("#fSave").disabled = false;
+  fillInfo();
+  $("#playDlg").showModal();
+}
+async function savePlay(e) {
+  e.preventDefault();
+  const g = S.games.find(x => x.id === S.pickGame) || (S.pickGame && S.newGame && S.newGame.id === S.pickGame ? S.newGame : null), date = $("#fDate").value, count = Math.max(1, parseInt($("#fCount").value, 10) || 1);
+  if (!g) { toast("Wybierz grę z listy albo użyj „+ Dodaj grę”."); $("#fGame").focus(); return; }
+  if (!date) return;
+  const ratings = {}, players = [];
+  for (const inp of document.querySelectorAll("[data-rid]")) {
+    const n = Number(inp.dataset.val);
+    if (inp.dataset.val && n > 0) ratings[inp.dataset.rid] = n;
+  }
+  for (const cb of document.querySelectorAll("[data-pid]")) if (cb.checked) players.push(cb.dataset.pid); else delete ratings[cb.dataset.pid];
+  const old = S.editPlay ? S.plays.find(x => x.id === S.editPlay) : null;
+  const pname = $("#fPlace").value.trim().replace(/\s+/g, " ");
+  let place = pname ? S.places.find(x => key(x.name) === key(pname)) : null;
+  if (pname && !place) {
+    const letter = ($("#fPlaceLetter").value || "").trim().toUpperCase();
+    if (!/^[A-ZĄĆĘŁŃÓŚŹŻ]$/.test(letter)) { toast("Podaj jedną literę dla nowego miejsca."); $("#fPlaceLetter").focus(); return; }
+    if (S.places.some(x => x.letter === letter)) { toast(`Litera ${letter} jest już zajęta.`); $("#fPlaceLetter").focus(); return; }
+    try { const [row] = await db.insert("places", [{ name: pname, letter }]); place = { id: row.id }; }
+    catch (err) { writeErr(err); return; }
+  }
+  const row = { game_id: g.id, place_id: place ? place.id : null, play_date: date, play_count: count, notes: $("#fNotes").value.trim() };
+  $("#fSave").disabled = true;
+  try {
+    let pid;
+    if (old) { await db.update("plays", "id=eq." + encodeURIComponent(old.id), row); pid = old.id; }
+    else { const [r] = await db.insert("plays", [row]); pid = r.id; }
+    const want = players.map(id => ({ play_id: pid, player_id: id, rating: ratings[id] ?? null }));
+    if (!old) { if (want.length) await db.insert("play_players", want); }
+    else {
+      const had = new Set(old.players);
+      for (const w of want) {
+        if (!had.has(w.player_id)) await db.insert("play_players", [w]);
+        else if ((old.ratings[w.player_id] ?? null) !== w.rating)
+          await db.update("play_players", `play_id=eq.${encodeURIComponent(pid)}&player_id=eq.${encodeURIComponent(w.player_id)}`, { rating: w.rating });
+      }
+      const removed = old.players.filter(id => !players.includes(id));
+      if (removed.length) await db.remove("play_players", `play_id=eq.${encodeURIComponent(pid)}&player_id=in.(${removed.map(encodeURIComponent).join(",")})`);
+    }
+    $("#playDlg").close(); toast(old ? "Zapisano zmiany." : "Dodano rozgrywkę.");
+  } catch (err) { writeErr(err); $("#fSave").disabled = false; }
+  await loadAll();
+}
+async function delPlay() {
+  const b = $("#fDel");
+  if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "Na pewno usunąć?"; return; }
+  try { await db.remove("plays", "id=eq." + encodeURIComponent(S.editPlay)); $("#playDlg").close(); toast("Usunięto rozgrywkę."); }
+  catch (err) { writeErr(err); }
+  await loadAll();
+}
+
+/* --- game card --- */
+function openGame(id, presetName) {
+  const g = id ? gameStats().find(x => x.id === id) : null;
+  S.editGame = g ? g.id : null;
+  $("#gDlgTitle").textContent = g ? g.name : "Nowa gra";
+  $("#gName").value = g ? g.name : (presetName || "");
+  const hasPlays = !!(g && g.plays.length);
+  $("#gPlayed").checked = hasPlays || !!(g && g.played);
+  $("#gPlayed").disabled = hasPlays;
+  $("#gPlayedHint").hidden = !hasPlays;
+  $("#gOwn").value = g ? g.own : "none";
+  $("#gType").value = g ? g.kind : "board";
+  $("#gStats").hidden = !hasPlays;
+  const del = $("#gDel"); del.hidden = !g || hasPlays; del.classList.remove("armed"); del.textContent = "Usuń";
+  $("#gAddPlay").hidden = !g || S.gameFromPlay || !S.perm.insert;
+  $("#gSave").disabled = false;
+  $("#gCancel").textContent = S.gameFromPlay ? "Wróć" : "Zamknij";
+  if (hasPlays) {
+    $("#gCalc").innerHTML = g.score == null
+      ? `Rozegrana ${g.total}×, jeszcze bez oceny.`
+      : `Ostatnia ocena ${fmt(g.lastRating)} (${esc(g.last.date)}) + bonus ${fmt(g.bonus)} za ${gamesWord(g.total)} = <b>${fmt(g.score)}</b>`;
+    $("#gHist").innerHTML = g.plays.map(p => {
+      const a = avg(p), r = p.ratings || {};
+      const who = Object.keys(r).map(pid => `${esc(playerName(pid))} ${fmtR(r[pid])}`).join(", ");
+      const pl = (p.players || []).filter(pid => !r[pid]).map(playerName);
+      return `<div class="hrow ${a == null ? "unrated" : ""} ${p === g.last ? "latest" : ""}"><span>${esc(p.date)}${Number(p.count) > 1 ? ` ×${p.count}` : ""}</span><span>${who || "bez oceny"}${pl.length ? `<br><span class="sub">grali też: ${esc(pl.join(", "))}</span>` : ""}${p.notes ? `<br><span class="sub">${esc(p.notes)}</span>` : ""}</span><span class="avg">${a == null ? "" : fmt(a)}</span></div>`;
+    }).join("");
+  }
+  const canSave = g ? S.perm.update : S.perm.insert;
+  for (const el of $("#gameForm").querySelectorAll("input,select")) el.disabled = !canSave || (el.id === "gPlayed" && hasPlays);
+  $("#gSave").hidden = !canSave;
+  if (!S.perm.delete) del.hidden = true;
+  $("#gameDlg").showModal();
+}
+function closeGame(newGame) {
+  $("#gameDlg").close();
+  if (S.gameFromPlay) {
+    S.gameFromPlay = false;
+    if (newGame) { S.newGame = newGame; setGame(newGame); }
+    fillInfo();
+    $("#playDlg").showModal();
+  }
+}
+async function saveGame(e) {
+  e.preventDefault();
+  const name = $("#gName").value.trim().replace(/\s+/g, " ");
+  if (!name) return;
+  const dup = gameByName(name);
+  if (dup && dup.id !== S.editGame) { toast(`Gra „${dup.name}” już jest w bazie.`); return; }
+  const old = S.editGame ? S.games.find(g => g.id === S.editGame) : null;
+  const body = { name, played_manual: $("#gPlayed").disabled ? !!(old && old.played) : $("#gPlayed").checked, ownership_code: $("#gOwn").value, type_code: $("#gType").value };
+  $("#gSave").disabled = true;
+  try {
+    let gid = old && old.id;
+    if (old) await db.update("games", "id=eq." + encodeURIComponent(old.id), body);
+    else gid = (await db.insert("games", [body]))[0].id;
+    toast(old ? "Zapisano grę." : `Dodano grę ${name}.`);
+    await loadAll();
+    closeGame({ id: gid, name, played: body.played_manual, ownership: body.ownership_code, type: body.type_code });
+  } catch (err) { writeErr(err); $("#gSave").disabled = false; }
+}
+async function delGame() {
+  const b = $("#gDel");
+  if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "Na pewno usunąć?"; return; }
+  try { await db.remove("games", "id=eq." + encodeURIComponent(S.editGame)); toast("Usunięto grę."); closeGame(); }
+  catch (err) { writeErr(err); }
+  await loadAll();
+}
+
+/* --- misc --- */
+let tt; function toast(m) { let el = $(".toast"); if (!el) { el = document.createElement("div"); el.className = "toast"; el.setAttribute("role", "status"); document.body.appendChild(el); } el.textContent = m; el.hidden = false; clearTimeout(tt); tt = setTimeout(() => el.hidden = true, 3200); }
+function writeErr(err) {
+  const e = err || {};
+  if (e.net) toast("Brak połączenia z bazą. Spróbuj jeszcze raz.");
+  else if (e.perm || e.status === 401 || e.status === 403 || e.code === "42501") toast("Nie masz uprawnień do tej operacji.");
+  else if (e.code === "23505") toast("Taki wpis już istnieje (powtórzona nazwa lub litera).");
+  else if (e.code === "23503") toast("Nie można usunąć, bo są z tym powiązane wpisy.");
+  else toast("Nie udało się zapisać." + (e.message ? " " + e.message : ""));
+}
+
+$("#tabSel").addEventListener("change", e => { S.tab = e.target.value; try { localStorage.setItem("tab", S.tab); } catch (_) {} render(); });
+$("#q").addEventListener("input", e => { S.q = e.target.value; render(); });
+$("#fPlayedSel").addEventListener("change", e => { S.fPlayed = e.target.value; render(); });
+$("#fOwnSel").addEventListener("change", e => { S.fOwn = e.target.value; render(); });
+$("#fTypeSel").addEventListener("change", e => { S.fType = e.target.value; render(); });
+$("#fShame").addEventListener("change", e => { S.fShame = e.target.checked; render(); });
+$("#view").addEventListener("click", e => {
+  const g = e.target.closest("[data-game]"); if (g) return openGame(g.dataset.game);
+  const pl = e.target.closest("[data-place]"); if (pl) return openPlace(pl.dataset.place);
+  const p = e.target.closest("[data-play]"); if (p && S.perm.update) openPlay(p.dataset.play);
+});
+$("#view").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches(".row[role=button]")) { e.preventDefault(); e.target.click(); } });
+$("#view").addEventListener("submit", async e => {
+  if (e.target.id !== "addPlayer") return; e.preventDefault();
+  const name = $("#newPlayer").value.trim(); if (!name) return;
+  if (S.players.some(p => p.name.toLowerCase() === name.toLowerCase())) return toast(`Gracz ${name} już jest na liście.`);
+  try { await db.insert("players", [{ name, sort: S.players.length + 1 }]); toast(`Dodano gracza ${name}.`); }
+  catch (err) { writeErr(err); }
+  await loadAll();
+});
+$("#fab").addEventListener("click", () => S.tab === "games" ? openGame(null) : S.tab === "places" ? openPlace(null) : openPlay(null));
+let editPlace = null;
+function openPlace(id) {
+  const x = id ? S.places.find(p => p.id === id) : null; editPlace = x ? x.id : null;
+  const n = x ? S.plays.filter(p => p.placeId === x.id).reduce((s, p) => s + (Number(p.count) || 1), 0) : 0;
+  $("#plDlgTitle").textContent = x ? x.name : "Nowe miejsce";
+  $("#plName").value = x ? x.name : ""; $("#plLetter").value = x ? x.letter : "";
+  $("#plCount").textContent = x ? `${n} ${plural(n, "partia", "partie", "partii")} w tym miejscu.` : "";
+  const d = $("#plDel"); d.hidden = !x || n > 0 || !S.perm.delete; d.classList.remove("armed"); d.textContent = "Usuń";
+  const canSave = x ? S.perm.update : S.perm.insert;
+  $("#plName").disabled = $("#plLetter").disabled = !canSave;
+  $("#plSave").disabled = false; $("#plSave").hidden = !canSave;
+  $("#placeDlg").showModal();
+}
+$("#plName").addEventListener("input", e => { if (!editPlace && !$("#plLetter").dataset.touched) $("#plLetter").value = freeLetter(e.target.value); });
+$("#plLetter").addEventListener("input", e => { e.target.dataset.touched = "1"; });
+$("#plCancel").addEventListener("click", () => $("#placeDlg").close());
+$("#placeForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = $("#plName").value.trim().replace(/\s+/g, " "), letter = $("#plLetter").value.trim().toUpperCase();
+  if (!name) return;
+  if (!/^[A-ZĄĆĘŁŃÓŚŹŻ]$/.test(letter)) { toast("Litera musi być jedną literą."); return; }
+  const other = S.places.filter(p => p.id !== editPlace);
+  if (other.some(p => p.letter === letter)) { toast(`Litera ${letter} jest już zajęta.`); return; }
+  if (other.some(p => key(p.name) === key(name))) { toast(`Miejsce „${name}” już jest.`); return; }
+  const old = editPlace ? S.places.find(p => p.id === editPlace) : null;
+  $("#plSave").disabled = true;
+  try {
+    const body = { name, letter };
+    if (old) await db.update("places", "id=eq." + encodeURIComponent(old.id), body); else await db.insert("places", [body]);
+    $("#placeDlg").close(); delete $("#plLetter").dataset.touched; toast(old ? "Zapisano miejsce." : `Dodano miejsce ${name}.`);
+  } catch (err) { writeErr(err); $("#plSave").disabled = false; }
+  await loadAll();
+});
+$("#plDel").addEventListener("click", async () => {
+  const b = $("#plDel");
+  if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "Na pewno usunąć?"; return; }
+  try { await db.remove("places", "id=eq." + encodeURIComponent(editPlace)); $("#placeDlg").close(); toast("Usunięto miejsce."); } catch (err) { writeErr(err); }
+  await loadAll();
+});
+$("#fGame").addEventListener("input", suggest);
+$("#fPlace").addEventListener("input", () => placeSuggest(false));
+$("#fPlaceLetter").addEventListener("input", e => { e.target.dataset.touched = "1"; });
+$("#fPlaceSugg").addEventListener("click", e => { const b = e.target.closest("[data-plid]"); if (b) { $("#fPlace").value = placeOf(b.dataset.plid).name; placeSuggest(true); } });
+$("#fPlaceSel").addEventListener("change", e => { S.fPlace = e.target.value; render(); });
+$("#fPTypeSel").addEventListener("change", e => { S.fPType = e.target.value; render(); });
+$("#fSugg").addEventListener("click", e => { const b = e.target.closest("[data-gid]"); if (b) setGame(S.games.find(g => g.id === b.dataset.gid)); });
+$("#fNewGame").addEventListener("click", () => { $("#playDlg").close(); S.gameFromPlay = true; openGame(null, ""); });
+$("#fEditGame").addEventListener("click", () => { const id = S.pickGame; if (!id) return; $("#playDlg").close(); S.gameFromPlay = true; openGame(id); });
+$("#playForm").addEventListener("submit", savePlay);
+$("#fCancel").addEventListener("click", () => $("#playDlg").close());
+$("#fDel").addEventListener("click", delPlay);
+$("#fPlayers").addEventListener("click", e => {
+  const b = e.target.closest("button[data-d], button[data-clear]"); if (!b) return;
+  const st = b.closest(".step"), pid = st.dataset.rid, d = Number(b.dataset.d || 0);
+  let v = st.dataset.val ? Number(st.dataset.val) : null;
+  if (b.dataset.clear) v = null;
+  else if (v == null) {
+    if (d < 0) return;
+    const prev = S.plays.filter(x => x.gameId === S.pickGame && x.id !== S.editPlay && (x.ratings || {})[pid] > 0).sort(newer)[0];
+    v = prev ? prev.ratings[pid] : 7;
+  } else v += 0.5 * d;
+  if (v > 10) v = 10;
+  if (v < 1) v = null;
+  st.dataset.val = v == null ? "" : String(v);
+  st.querySelector(".sv").textContent = v == null ? "—" : fmtR(v);
+  if (v != null) { const cb = document.getElementById("pc-" + pid); if (cb) cb.checked = true; }
+});
+$("#fPlayers").addEventListener("change", e => {
+  const cb = e.target.closest("[data-pid]"); if (!cb || cb.checked) return;
+  const st = document.querySelector(`.step[data-rid="${cb.dataset.pid}"]`);
+  if (st) { st.dataset.val = ""; st.querySelector(".sv").textContent = "—"; }
+});
+$("#gameForm").addEventListener("submit", saveGame);
+$("#gCancel").addEventListener("click", () => closeGame());
+$("#gameDlg").addEventListener("cancel", e => { e.preventDefault(); closeGame(); });
+$("#gDel").addEventListener("click", delGame);
+$("#gAddPlay").addEventListener("click", () => { const id = S.editGame; $("#gameDlg").close(); openPlay(null, id); });
+
+try { const t = localStorage.getItem("tab"); if (tabs.includes(t)) S.tab = t; } catch (_) {}
+render();
+
+/* --- Supabase: połączenie, logowanie, dane --- */
+const SB_URL = "https://dknuikuobdhewpempjun.supabase.co";
+const SB_KEY = "sb_publishable_yZza-OGzFmwPCLK3fbHrCg_GhgCdlqq";
+const LS_SESSION = "dziennik_session";
+
+function saveSession(x) {
+  S.session = x;
+  try { x ? localStorage.setItem(LS_SESSION, JSON.stringify(x)) : localStorage.removeItem(LS_SESSION); } catch (_) {}
+}
+async function authReq(grant, body) {
+  let r;
+  try {
+    r = await fetch(`${SB_URL}/auth/v1/token?grant_type=${grant}`, {
+      method: "POST", headers: { apikey: SB_KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  } catch (_) { throw { net: true }; }
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw { status: r.status, message: d.error_description || d.msg || d.message };
+  return { access_token: d.access_token, refresh_token: d.refresh_token,
+    expires_at: Date.now() + (d.expires_in || 3600) * 1000, email: ((d.user && d.user.email) || "").toLowerCase() };
+}
+let refreshing = null;
+async function ensureFresh() {
+  if (!S.session || S.session.expires_at - Date.now() > 60000) return;
+  if (!refreshing) refreshing = (async () => {
+    try { saveSession(await authReq("refresh_token", { refresh_token: S.session.refresh_token })); }
+    catch (e) { if (!e.net) { saveSession(null); S.perm = {}; applyPerms(); } }
+    finally { refreshing = null; }
+  })();
+  await refreshing;
+}
+async function api(method, path, body, prefer) {
+  await ensureFresh();
+  const h = { apikey: SB_KEY, "Content-Type": "application/json" };
+  if (S.session) h.Authorization = "Bearer " + S.session.access_token;
+  if (prefer) h.Prefer = prefer;
+  let res;
+  try { res = await fetch(SB_URL + path, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }); }
+  catch (_) { throw { net: true }; }
+  const txt = await res.text();
+  let data = null; try { data = txt ? JSON.parse(txt) : null; } catch (_) {}
+  if (!res.ok) throw { status: res.status, code: data && data.code, message: data && (data.message || data.msg) };
+  return data;
+}
+const db = {
+  async all(table, select = "*", order = "") {
+    const out = [];
+    for (let from = 0; ; from += 1000) {
+      const rows = await api("GET", `/rest/v1/${table}?select=${select}${order ? "&order=" + order : ""}&limit=1000&offset=${from}`);
+      out.push(...rows);
+      if (rows.length < 1000) return out;
+    }
+  },
+  insert: (table, rows) => api("POST", `/rest/v1/${table}`, rows, "return=representation"),
+  async update(table, filter, body) {
+    const r = await api("PATCH", `/rest/v1/${table}?${filter}`, body, "return=representation");
+    if (!r || !r.length) throw { perm: true };
+    return r;
+  },
+  async remove(table, filter) {
+    const r = await api("DELETE", `/rest/v1/${table}?${filter}`, undefined, "return=representation");
+    if (!r || !r.length) throw { perm: true };
+    return r;
+  }
+};
+
+async function loadAll() {
+  try {
+    const [games, plays, pp, players, places, types, owns, levels] = await Promise.all([
+      db.all("games", "*", "id"), db.all("plays", "*", "id"), db.all("play_players", "*", "play_id,player_id"),
+      db.all("players", "*", "id"), db.all("places", "*", "id"), db.all("game_types", "*", "sort"),
+      db.all("ownership_statuses", "*", "sort"), db.all("permission_levels", "code,name,sort", "sort")]);
+    S.types = types; S.owns = owns; S.levels = levels;
+    S.games = games.map(g => ({ id: g.id, name: g.name, played: g.played_manual, ownership: g.ownership_code, type: g.type_code }));
+    const byPlay = new Map();
+    S.plays = plays.map(p => {
+      const x = { id: p.id, gameId: p.game_id, placeId: p.place_id, date: p.play_date, count: p.play_count, notes: p.notes,
+        lp: p.legacy_lp, createdAt: Date.parse(p.created_at) || 0, players: [], ratings: {} };
+      byPlay.set(p.id, x); return x;
+    });
+    for (const r of pp) { const x = byPlay.get(r.play_id); if (!x) continue; x.players.push(r.player_id); if (r.rating != null) x.ratings[r.player_id] = Number(r.rating); }
+    S.players = players.map(p => ({ id: p.id, name: p.name, order: p.sort }));
+    S.places = places.map(p => ({ id: p.id, name: p.name, letter: p.letter }));
+    fillDictSelects();
+    S.loaded.all = true; S.loadErr = false;
+  } catch (e) { S.loadErr = true; }
+  S.lastLoad = Date.now();
+  render();
+}
+function fillDictSelects() {
+  const opts = (list, withAll, allLabel) => (withAll ? `<option value="all">${allLabel}</option>` : "") + list.map(x => `<option value="${esc(x.code)}">${esc(x.name)}</option>`).join("");
+  for (const [id, list, all, label] of [["fPTypeSel", S.types, true, "typ"], ["fTypeSel", S.types, true, "wszystkie"], ["gType", S.types, false],
+    ["fOwnSel", S.owns, true, "wszystkie"], ["gOwn", S.owns, false]]) {
+    const el = document.getElementById(id), cur = el.value;
+    el.innerHTML = opts(list, all, label);
+    if ([...el.options].some(o => o.value === cur)) el.value = cur;
+  }
+}
+
+async function loadPerms() {
+  S.perm = {};
+  if (S.session) {
+    try {
+      const r = await api("GET", `/rest/v1/user_permissions?select=level_code,permission_levels(name,can_insert,can_update,can_delete,can_manage)&email=eq.${encodeURIComponent(S.session.email)}`);
+      const l = r && r[0] && r[0].permission_levels;
+      if (l) S.perm = { insert: l.can_insert, update: l.can_update, delete: l.can_delete, manage: l.can_manage, level: l.name };
+    } catch (_) {}
+  }
+  applyPerms();
+}
+function applyPerms() {
+  const b = document.body.classList;
+  b.toggle("p-ins", !!S.perm.insert); b.toggle("p-upd", !!S.perm.update);
+  b.toggle("p-del", !!S.perm.delete); b.toggle("p-man", !!S.perm.manage);
+  $("#authBtn").textContent = S.session ? "Wyloguj" : "Zaloguj";
+  const sel = $("#tabSel"), opt = sel.querySelector('option[value="perms"]');
+  if (S.perm.manage && !opt) sel.insertAdjacentHTML("beforeend", '<option value="perms">Uprawnienia</option>');
+  if (!S.perm.manage && opt) opt.remove();
+  if (S.tab === "perms" && !S.perm.manage) S.tab = "ranking";
+  S.permRows = null;
+  render();
+}
+
+/* --- logowanie --- */
+$("#authBtn").addEventListener("click", async () => {
+  if (S.session) {
+    try { await fetch(`${SB_URL}/auth/v1/logout`, { method: "POST", headers: { apikey: SB_KEY, Authorization: "Bearer " + S.session.access_token } }); } catch (_) {}
+    saveSession(null); await loadPerms(); toast("Wylogowano.");
+    return;
+  }
+  $("#lgErr").hidden = true; $("#lgPass").value = ""; $("#lgOk").disabled = false;
+  $("#loginDlg").showModal();
+});
+$("#lgCancel").addEventListener("click", () => $("#loginDlg").close());
+$("#loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const email = $("#lgEmail").value.trim().toLowerCase(), password = $("#lgPass").value;
+  if (!email || !password) return;
+  $("#lgOk").disabled = true;
+  try {
+    saveSession(await authReq("password", { email, password }));
+    await loadPerms();
+    $("#loginDlg").close();
+    toast(S.perm.level ? `Zalogowano: ${S.session.email} (${S.perm.level}).` : "Zalogowano, ale to konto nie ma przypisanych uprawnień.");
+  } catch (err) {
+    const el = $("#lgErr"); el.hidden = false;
+    el.textContent = err.net ? "Brak połączenia. Spróbuj jeszcze raz." : (err.status === 400 ? "Nieprawidłowy e-mail lub hasło." : "Nie udało się zalogować." + (err.message ? " " + err.message : ""));
+    $("#lgOk").disabled = false;
+  }
+});
+
+/* --- zakładka Uprawnienia --- */
+let permLoading = false;
+async function loadPermRows() {
+  if (permLoading) return; permLoading = true;
+  try { S.permRows = await db.all("user_permissions", "email,level_code", "email"); }
+  catch (err) { S.permRows = []; writeErr(err); }
+  permLoading = false;
+  if (S.tab === "perms") render();
+}
+$("#view").addEventListener("change", async e => {
+  const sel = e.target.closest("select[data-perm-level]"); if (!sel) return;
+  const email = sel.closest("[data-email]").dataset.email;
+  try { await db.update("user_permissions", "email=eq." + encodeURIComponent(email), { level_code: sel.value, updated_at: new Date().toISOString() }); toast(`Zmieniono poziom: ${email}.`); }
+  catch (err) { writeErr(err); }
+  S.permRows = null; render();
+});
+$("#view").addEventListener("click", async e => {
+  const b = e.target.closest("[data-perm-del]"); if (!b) return;
+  if (!b.classList.contains("armed")) { b.classList.add("btn", "armed"); b.textContent = "Na pewno?"; return; }
+  const email = b.closest("[data-email]").dataset.email;
+  try { await db.remove("user_permissions", "email=eq." + encodeURIComponent(email)); toast(`Usunięto uprawnienia: ${email}.`); }
+  catch (err) { writeErr(err); }
+  S.permRows = null; render();
+});
+$("#view").addEventListener("submit", async e => {
+  if (e.target.id !== "addPerm") return; e.preventDefault();
+  const email = $("#newPermEmail").value.trim().toLowerCase(), level = $("#newPermLevel").value;
+  if (!email) return;
+  if ((S.permRows || []).some(r => r.email === email)) { toast("Ten e-mail już jest na liście. Zmień mu poziom na liście."); return; }
+  try { await db.insert("user_permissions", [{ email, level_code: level }]); toast(`Dodano: ${email}.`); }
+  catch (err) { writeErr(err); }
+  S.permRows = null; render();
+});
+
+/* --- start --- */
+(async () => {
+  try { const x = JSON.parse(localStorage.getItem(LS_SESSION) || "null"); if (x && x.access_token) S.session = x; } catch (_) {}
+  await ensureFresh();
+  await Promise.all([loadPerms(), loadAll()]);
+})();
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && Date.now() - (S.lastLoad || 0) > 30000) loadAll();
+});
+</script>
+</body>
+</html>
